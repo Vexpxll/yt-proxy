@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Video Proxy</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div id="search-bar">
+  <input type="text" id="query" placeholder="Search videos..." />
+  <button onclick="search()">Search</button>
+</div>
+
+<div id="main">
+  <div id="player-panel">
+    <p id="placeholder">🎬 Search for a video to begin</p>
+    <div id="player-wrapper" style="display:none">
+      <div id="yt-player"></div>
+    </div>
+    <h2 id="video-title"></h2>
+  </div>
+  <div id="results"></div>
+</div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+  const API_KEY = "YOUR_YOUTUBE_API_KEY_HERE";
+
+  let player;
+  let playerReady = false;
+
+  function onYouTubeIframeAPIReady() {
+    player = new YT.Player("yt-player", {
+      height: "100%",
+      width: "100%",
+      playerVars: { autoplay: 1, rel: 0 },
+      events: { onReady: () => { playerReady = true; } }
+    });
+  }
+
+  function playVideo(videoId, title) {
+    document.getElementById("placeholder").style.display = "none";
+    document.getElementById("player-wrapper").style.display = "block";
+    document.getElementById("video-title").textContent = title;
+    if (playerReady) player.loadVideoById(videoId);
+  }
+
+  async function search() {
+    const q = document.getElementById("query").value.trim();
+    if (!q) return;
+
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=20&q=${encodeURIComponent(q)}&key=${API_KEY}`;
+
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.error) { alert("API Error: " + data.error.message); return; }
+
+      const container = document.getElementById("results");
+      container.innerHTML = "";
+
+      data.items.forEach(item => {
+        const videoId = item.id.videoId;
+        const title = item.snippet.title;
+        const channel = item.snippet.channelTitle;
+        const thumb = item.snippet.thumbnails.medium.url;
+
+        const card = document.createElement("div");
+        card.className = "result-card";
+        card.innerHTML = `
+          <img src="${thumb}" alt="thumbnail" />
+          <div class="result-info">
+            <div class="result-title">${title}</div>
+            <div class="result-channel">${channel}</div>
+          </div>
+        `;
+        card.onclick = () => playVideo(videoId, title);
+        container.appendChild(card);
+      });
+
+      if (data.items.length > 0) {
+        const first = data.items[0];
+        playVideo(first.id.videoId, first.snippet.title);
+      }
+    } catch (err) {
+      alert("Fetch error: " + err.message);
+    }
+  }
+
+  document.getElementById("query").addEventListener("keydown", e => {
+    if (e.key === "Enter") search();
+  });
+</script>
+
+</body>
+</html>
